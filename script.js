@@ -264,6 +264,63 @@ const scoreValEl = document.querySelector(".score_val");
 const scoreTitleEl = document.querySelector(".score_title");
 const messageEl = document.querySelector(".message");
 
+// ---------- Day/Night biome effect ----------
+let dayNightState = "day";
+
+function applyDayNight(state) {
+  const body = document.body;
+  if (state === "night") {
+    body.classList.remove("day");
+    body.classList.add("night");
+    dayNightState = "night";
+  } else {
+    body.classList.remove("night");
+    body.classList.add("day");
+    dayNightState = "day";
+  }
+}
+
+function initDayNightCycle() {
+  const now = new Date();
+  const hour = now.getHours();
+
+  // Set initial mode once (day 6am-6pm; night else)
+  if (hour >= 6 && hour < 18) {
+    applyDayNight("day");
+  } else {
+    applyDayNight("night");
+  }
+
+  // No automatic mode switching; manual toggle only
+  updateDayNightButton();
+}
+
+function updateDayNightButton() {
+  const btn = document.getElementById("day-night-toggle");
+  if (!btn) return;
+  btn.textContent =
+    dayNightState === "day" ? "Switch to Night" : "Switch to Day";
+}
+
+initDayNightCycle();
+
+const dayNightButton = document.getElementById("day-night-toggle");
+if (dayNightButton) {
+  dayNightButton.addEventListener("click", () => {
+    applyDayNight(dayNightState === "day" ? "night" : "day");
+    updateDayNightButton();
+    dayNightButton.blur();
+  });
+
+  dayNightButton.addEventListener("keydown", (e) => {
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+    }
+  });
+}
+
+updateDayNightButton();
+
 // Audio
 const soundPoint = new Audio("sounds effect/point.mp3");
 const soundDie = new Audio("sounds effect/die.mp3");
@@ -287,6 +344,15 @@ if (messageEl) messageEl.classList.add("messageStyle");
 
 // ---------- Keyboard Controls ----------
 document.addEventListener("keydown", (e) => {
+  // Don’t use game controls when the Day/Night button is focused.
+  if (e.target && e.target.id === "day-night-toggle") {
+    // Avoid default Space / Enter button click behavior from interfering with gameplay.
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+    }
+    return;
+  }
+
   if ((e.key === "ArrowUp" || e.key === " ") && gameState === "Ready") {
     startPlayFromInput();
   } else if ((e.key === "ArrowUp" || e.key === " ") && gameState === "Play") {
