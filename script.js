@@ -144,19 +144,27 @@ class FlameParticle {
   }
 }
 function spawnFlamesFromPipes() {
-  if (gameState !== "Play") return;
-  document.querySelectorAll(".pipe_sprite").forEach((pipe) => {
+  if (gameState !== 'Play') return;
+  document.querySelectorAll('.pipe_sprite').forEach(pipe => {
     const r = pipe.getBoundingClientRect();
     const isTop = r.top < window.innerHeight * 0.3;
     const edgeY = isTop ? r.bottom : r.top;
-    for (let i = 0; i < 4; i++)
-      flameParticles.push(
-        new FlameParticle(
-          r.left + Math.random() * r.width,
-          edgeY,
-          isTop ? 1 : -1,
-        ),
-      );
+
+    // Visual particles
+    for (let i = 0; i < 3; i++)
+      flameParticles.push(new FlameParticle(r.left + Math.random() * r.width, edgeY, isTop ? 1 : -1));
+
+    // Fresh bird position right before checking
+    const freshBirdRect = bird.getBoundingClientRect();
+    const flameTop    = isTop ? edgeY - 5  : edgeY - 50;
+    const flameBottom = isTop ? edgeY + 50 : edgeY + 5;
+
+    if (
+      freshBirdRect.left   < r.right   &&
+      freshBirdRect.right  > r.left    &&
+      freshBirdRect.top    < flameBottom &&
+      freshBirdRect.bottom > flameTop
+    ) takeDamage();
   });
 }
 function startFlameSpawner() {
@@ -165,14 +173,10 @@ function startFlameSpawner() {
 }
 (function renderFlames() {
   fCtx.clearRect(0, 0, flameCanvas.width, flameCanvas.height);
-  flameParticles = flameParticles.filter((p) => p.life > 0);
-  flameParticles.forEach((p) => {
-    p.update();
-    p.draw(fCtx);
-  });
+  flameParticles = flameParticles.filter(p => p.life > 0);
+  flameParticles.forEach(p => { p.update(); p.draw(fCtx); });
   requestAnimationFrame(renderFlames);
 })();
-
 // --- MONSTERS ---
 const MONSTER_EMOJIS = ["👾", "🦇", "💀", "🐙", "🔮"];
 let monsters = [];
@@ -242,6 +246,73 @@ function startMonsterSpawner() {
       },
       8000 + Math.random() * 5000,
     );
+  };
+  next();
+}
+
+// --- HEALTH BOOSTER ---
+let boosterSpawnHandle;
+
+function spawnBooster() {
+  if (gameState !== 'Play') return;
+
+  const booster = document.createElement('div');
+  booster.id = 'health-booster';
+  booster.textContent = '💊';
+  booster.style.cssText = `
+    position: fixed;
+    font-size: 2rem;
+    z-index: 160;
+    pointer-events: none;
+    filter: drop-shadow(0 0 8px rgba(255,100,100,0.9));
+    left: 105vw;
+  `;
+
+  const yPct = Math.random() * 50 + 20;
+  booster.style.top = yPct + 'vh';
+  document.body.appendChild(booster);
+
+  let x = window.innerWidth * 1.05;
+
+  function moveBooster() {
+    if (gameState !== 'Play') { booster.remove(); return; }
+
+    x -= MOVE_SPEED_VAR * 0.8;
+    booster.style.left = x + 'px';
+
+    if (x < -50) { booster.remove(); return; }
+
+    // Collision with bird
+    const br = bird.getBoundingClientRect();
+    const hr = booster.getBoundingClientRect();
+    if (
+      br.left < hr.right && br.right > hr.left &&
+      br.top < hr.bottom && br.bottom > hr.top
+    ) {
+      if (currentHealth < 3) {
+        currentHealth++;
+        updateHearts();
+      }
+      booster.style.fontSize = '0px';
+      setTimeout(() => booster.remove(), 200);
+      return;
+    }
+
+    requestAnimationFrame(moveBooster);
+  }
+
+  requestAnimationFrame(moveBooster);
+}
+
+function startBoosterSpawner() {
+  clearTimeout(boosterSpawnHandle);
+  const next = () => {
+    if (gameState !== 'Play') return;
+    // Spawns every 15–25 seconds — rare!
+    boosterSpawnHandle = setTimeout(() => {
+      spawnBooster();
+      next();
+    }, 15000 + Math.random() * 10000);
   };
   next();
 }
@@ -397,6 +468,9 @@ function flap() {
 }
 
 function resetToReady() {
+  clearTimeout(boosterSpawnHandle);
+  const oldBooster = document.getElementById('health-booster');
+  if (oldBooster) oldBooster.remove();
   monsters.forEach((m) => m.el.remove());
   monsters = [];
   flameParticles = [];
@@ -625,6 +699,7 @@ function play() {
   requestAnimationFrame(move);
   requestAnimationFrame(applyGravity);
   requestAnimationFrame(createPipe);
+  startBoosterSpawner();
 }
 
 function endGame() {
