@@ -46,6 +46,8 @@ function applyDifficulty(key) {
   FLAP_VELOCITY_VAR = p.flapVelocity;
   PIPE_GAP_VH_VAR = p.pipeGapVH;
   PIPE_SEPARATION_THRESHOLD_VAR = p.pipeSep;
+  // Update select element to match
+  if (diffEl) diffEl.value = key;
 }
 
 // --- HEALTH SYSTEM ---
@@ -144,27 +146,34 @@ class FlameParticle {
   }
 }
 function spawnFlamesFromPipes() {
-  if (gameState !== 'Play') return;
-  document.querySelectorAll('.pipe_sprite').forEach(pipe => {
+  if (gameState !== "Play") return;
+  document.querySelectorAll(".pipe_sprite").forEach((pipe) => {
     const r = pipe.getBoundingClientRect();
     const isTop = r.top < window.innerHeight * 0.3;
     const edgeY = isTop ? r.bottom : r.top;
 
     // Visual particles
     for (let i = 0; i < 3; i++)
-      flameParticles.push(new FlameParticle(r.left + Math.random() * r.width, edgeY, isTop ? 1 : -1));
+      flameParticles.push(
+        new FlameParticle(
+          r.left + Math.random() * r.width,
+          edgeY,
+          isTop ? 1 : -1,
+        ),
+      );
 
     // Fresh bird position right before checking
     const freshBirdRect = bird.getBoundingClientRect();
-    const flameTop    = isTop ? edgeY - 5  : edgeY - 50;
+    const flameTop = isTop ? edgeY - 5 : edgeY - 50;
     const flameBottom = isTop ? edgeY + 50 : edgeY + 5;
 
     if (
-      freshBirdRect.left   < r.right   &&
-      freshBirdRect.right  > r.left    &&
-      freshBirdRect.top    < flameBottom &&
+      freshBirdRect.left < r.right &&
+      freshBirdRect.right > r.left &&
+      freshBirdRect.top < flameBottom &&
       freshBirdRect.bottom > flameTop
-    ) takeDamage();
+    )
+      takeDamage();
   });
 }
 function startFlameSpawner() {
@@ -173,8 +182,11 @@ function startFlameSpawner() {
 }
 (function renderFlames() {
   fCtx.clearRect(0, 0, flameCanvas.width, flameCanvas.height);
-  flameParticles = flameParticles.filter(p => p.life > 0);
-  flameParticles.forEach(p => { p.update(); p.draw(fCtx); });
+  flameParticles = flameParticles.filter((p) => p.life > 0);
+  flameParticles.forEach((p) => {
+    p.update();
+    p.draw(fCtx);
+  });
   requestAnimationFrame(renderFlames);
 })();
 // --- MONSTERS ---
@@ -254,11 +266,11 @@ function startMonsterSpawner() {
 let boosterSpawnHandle;
 
 function spawnBooster() {
-  if (gameState !== 'Play') return;
+  if (gameState !== "Play") return;
 
-  const booster = document.createElement('div');
-  booster.id = 'health-booster';
-  booster.textContent = '💊';
+  const booster = document.createElement("div");
+  booster.id = "health-booster";
+  booster.textContent = "💊";
   booster.style.cssText = `
     position: fixed;
     font-size: 2rem;
@@ -269,31 +281,39 @@ function spawnBooster() {
   `;
 
   const yPct = Math.random() * 50 + 20;
-  booster.style.top = yPct + 'vh';
+  booster.style.top = yPct + "vh";
   document.body.appendChild(booster);
 
   let x = window.innerWidth * 1.05;
 
   function moveBooster() {
-    if (gameState !== 'Play') { booster.remove(); return; }
+    if (gameState !== "Play") {
+      booster.remove();
+      return;
+    }
 
     x -= MOVE_SPEED_VAR * 0.8;
-    booster.style.left = x + 'px';
+    booster.style.left = x + "px";
 
-    if (x < -50) { booster.remove(); return; }
+    if (x < -50) {
+      booster.remove();
+      return;
+    }
 
     // Collision with bird
     const br = bird.getBoundingClientRect();
     const hr = booster.getBoundingClientRect();
     if (
-      br.left < hr.right && br.right > hr.left &&
-      br.top < hr.bottom && br.bottom > hr.top
+      br.left < hr.right &&
+      br.right > hr.left &&
+      br.top < hr.bottom &&
+      br.bottom > hr.top
     ) {
       if (currentHealth < 3) {
         currentHealth++;
         updateHearts();
       }
-      booster.style.fontSize = '0px';
+      booster.style.fontSize = "0px";
       setTimeout(() => booster.remove(), 200);
       return;
     }
@@ -307,12 +327,15 @@ function spawnBooster() {
 function startBoosterSpawner() {
   clearTimeout(boosterSpawnHandle);
   const next = () => {
-    if (gameState !== 'Play') return;
+    if (gameState !== "Play") return;
     // Spawns every 15–25 seconds — rare!
-    boosterSpawnHandle = setTimeout(() => {
-      spawnBooster();
-      next();
-    }, 15000 + Math.random() * 10000);
+    boosterSpawnHandle = setTimeout(
+      () => {
+        spawnBooster();
+        next();
+      },
+      15000 + Math.random() * 10000,
+    );
   };
   next();
 }
@@ -320,10 +343,23 @@ function startBoosterSpawner() {
 // try to wire up selector if present; otherwise default to medium
 const diffEl = document.getElementById("difficulty_select");
 if (diffEl) {
-  diffEl.addEventListener("change", (e) => applyDifficulty(e.target.value));
+  diffEl.addEventListener("change", (e) => {
+    if (gameState !== "Play") {
+      applyDifficulty(e.target.value);
+    } else {
+      // Revert the change if game is playing
+      e.target.value = getCurrentDifficulty();
+    }
+  });
   applyDifficulty(diffEl.value || "medium");
 } else {
   applyDifficulty("medium");
+}
+
+function getCurrentDifficulty() {
+  if (Math.abs(MOVE_SPEED_VAR - 2.0) < 0.1) return "easy";
+  if (Math.abs(MOVE_SPEED_VAR - 4.5) < 0.1) return "hard";
+  return "medium";
 }
 
 // ---------- DOM References ----------
@@ -460,6 +496,8 @@ function startPlayFromInput() {
   startFlameSpawner();
   startMonsterSpawner();
   requestAnimationFrame(updateMonsters);
+  // Disable difficulty selector during gameplay
+  if (diffEl) diffEl.disabled = true;
 }
 
 function flap() {
@@ -469,7 +507,7 @@ function flap() {
 
 function resetToReady() {
   clearTimeout(boosterSpawnHandle);
-  const oldBooster = document.getElementById('health-booster');
+  const oldBooster = document.getElementById("health-booster");
   if (oldBooster) oldBooster.remove();
   monsters.forEach((m) => m.el.remove());
   monsters = [];
@@ -488,6 +526,8 @@ function resetToReady() {
   if (scoreTitleEl) scoreTitleEl.innerHTML = "Score : ";
   if (scoreValEl) scoreValEl.innerHTML = "0";
   if (messageEl) messageEl.classList.remove("messageStyle");
+  // Enable difficulty selector when not playing
+  if (diffEl) diffEl.disabled = false;
 }
 
 // ---------- MediaPipe Hands Setup ----------
@@ -716,6 +756,9 @@ function endGame() {
   try {
     soundDie.play();
   } catch (e) {}
+
+  // Enable difficulty selector when game ends
+  if (diffEl) diffEl.disabled = false;
 
   // NOTE: original code doesn't persist high score; if you want that added I can add it
 }
