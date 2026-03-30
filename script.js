@@ -8,6 +8,20 @@ const PIPE_GAP_VH = 50;
 const FLAP_COOLDOWN_MS = 250;
 const FLAP_DY_THRESHOLD = 0.03; // sensitivity for upward flick
 
+// ---------- High Score localStorage persistence ----------
+const HIGH_SCORE_KEY = "flappybird_highscore";
+
+function getHighScore() {
+  const stored = localStorage.getItem(HIGH_SCORE_KEY);
+  return stored ? parseInt(stored, 10) : 0;
+}
+
+function saveHighScore(score) {
+  localStorage.setItem(HIGH_SCORE_KEY, score.toString());
+}
+
+let highScore = getHighScore();
+
 // ---------- Difficulty runtime vars & presets ----------
 let MOVE_SPEED_VAR = MOVE_SPEED;
 let GRAVITY_VAR = GRAVITY;
@@ -270,18 +284,12 @@ function spawnBooster() {
 
   const booster = document.createElement("div");
   booster.id = "health-booster";
+  booster.classList.add("health-booster");
   booster.textContent = "💊";
-  booster.style.cssText = `
-    position: fixed;
-    font-size: 2rem;
-    z-index: 160;
-    pointer-events: none;
-    filter: drop-shadow(0 0 8px rgba(255,100,100,0.9));
-    left: 105vw;
-  `;
 
   const yPct = Math.random() * 50 + 20;
   booster.style.top = yPct + "vh";
+  booster.style.left = "105vw";
   document.body.appendChild(booster);
 
   let x = window.innerWidth * 1.05;
@@ -369,6 +377,10 @@ const backgroundEl = document.querySelector(".background");
 
 const scoreValEl = document.querySelector(".score_val");
 const scoreTitleEl = document.querySelector(".score_title");
+const highScoreEl = document.createElement("div");
+highScoreEl.id = "high-score-display";
+highScoreEl.innerHTML = `High Score: <span id="high-score-value">${highScore}</span>`;
+document.body.appendChild(highScoreEl);
 const messageEl = document.querySelector(".message");
 
 // ---------- Day/Night biome effect ----------
@@ -744,6 +756,16 @@ function play() {
 
 function endGame() {
   gameState = "End";
+
+  // Save high score if current score beats it
+  const currentScore = parseInt(scoreValEl.innerHTML) || 0;
+  if (currentScore > highScore) {
+    highScore = currentScore;
+    saveHighScore(highScore);
+    const highScoreValueEl = document.getElementById("high-score-value");
+    if (highScoreValueEl) highScoreValueEl.innerHTML = highScore;
+  }
+
   if (messageEl) {
     messageEl.style.left = "50%";
     messageEl.style.top = "50%";
@@ -759,8 +781,6 @@ function endGame() {
 
   // Enable difficulty selector when game ends
   if (diffEl) diffEl.disabled = false;
-
-  // NOTE: original code doesn't persist high score; if you want that added I can add it
 }
 
 // ---------- Optional: Animated Pipe Colors ----------
