@@ -1,5 +1,5 @@
 // ---------- Constants & Tuning (base defaults kept) ----------
-const MOVE_SPEED = 3;
+const MOVE_SPEED = 1.5; // lower base speed for easier play
 const GRAVITY = 0.5;
 const FLAP_VELOCITY = -7.6;
 const PIPE_SEPARATION_THRESHOLD = 115;
@@ -31,21 +31,21 @@ let PIPE_GAP_VH_VAR = PIPE_GAP_VH;
 
 const DIFFICULTY = {
   easy: {
-    moveSpeed: 2.0,
+    moveSpeed: 1.2,
     gravity: 0.38,
     flapVelocity: -7.6,
     pipeGapVH: 58,
     pipeSep: 135,
   },
   medium: {
-    moveSpeed: 3.0,
+    moveSpeed: 1.8,
     gravity: 0.5,
     flapVelocity: -7.6,
     pipeGapVH: 50,
     pipeSep: 115,
   },
   hard: {
-    moveSpeed: 4.5,
+    moveSpeed: 2.5,
     gravity: 0.62,
     flapVelocity: -7.6,
     pipeGapVH: 42,
@@ -449,6 +449,7 @@ let gameState = "Start"; // 'Start' | 'Ready' | 'Play' | 'End'
 let birdDy = 0;
 let birdRect = bird.getBoundingClientRect();
 let backgroundRect = backgroundEl.getBoundingClientRect();
+let confettiTriggered = false;
 
 // MediaPipe / camera flags
 let cameraStarted = false;
@@ -661,6 +662,14 @@ function play() {
 
     const pipes = document.querySelectorAll(".pipe_sprite");
     pipes.forEach((pipe) => {
+      if (pipe.dataset.baseTop) {
+        const wavePhase = parseFloat(pipe.dataset.wavePhase) || 0;
+        const waveAmp = parseFloat(pipe.dataset.waveAmp) || 2;
+        const baseTop = parseFloat(pipe.dataset.baseTop);
+        const offset = Math.sin(performance.now() * 0.004 + wavePhase) * waveAmp;
+        pipe.style.top = baseTop + offset + "vh";
+      }
+
       const pipeRect = pipe.getBoundingClientRect();
 
       if (pipeRect.right <= 0) {
@@ -687,11 +696,17 @@ function play() {
         pipe.increase_score === "1"
       ) {
         const cur = parseInt(scoreValEl.innerHTML) || 0;
-        scoreValEl.innerHTML = cur + 1;
+        const nextScore = cur + 1;
+        scoreValEl.innerHTML = nextScore;
         pipe.increase_score = "0";
         try {
           soundPoint.play();
         } catch (e) {}
+
+        if (nextScore >= 3 && !confettiTriggered) {
+          confettiTriggered = true;
+          spawnConfetti();
+        }
       }
 
       // Move pipe (use runtime speed var)
@@ -727,17 +742,25 @@ function play() {
     if (pipeSeparationCounter > PIPE_SEPARATION_THRESHOLD_VAR) {
       pipeSeparationCounter = 0;
       const pipeBase = Math.floor(Math.random() * 43) + 8;
+      const wavePhase = Math.random() * Math.PI * 2;
+      const waveAmp = 2 + Math.random() * 2;
 
       // top (inverted) pipe
       const topPipe = document.createElement("div");
-      topPipe.className = "pipe_sprite";
+      topPipe.className = "pipe_sprite top_pipe";
+      topPipe.dataset.baseTop = pipeBase - 70;
+      topPipe.dataset.wavePhase = wavePhase;
+      topPipe.dataset.waveAmp = waveAmp;
       topPipe.style.top = pipeBase - 70 + "vh";
       topPipe.style.left = "100vw";
       document.body.appendChild(topPipe);
 
       // bottom pipe
       const bottomPipe = document.createElement("div");
-      bottomPipe.className = "pipe_sprite";
+      bottomPipe.className = "pipe_sprite bottom_pipe";
+      bottomPipe.dataset.baseTop = pipeBase + PIPE_GAP_VH_VAR;
+      bottomPipe.dataset.wavePhase = wavePhase; // synchronous movement for constant gap
+      bottomPipe.dataset.waveAmp = waveAmp;
       bottomPipe.style.top = pipeBase + PIPE_GAP_VH_VAR + "vh";
       bottomPipe.style.left = "100vw";
       bottomPipe.increase_score = "1";
@@ -781,6 +804,46 @@ function endGame() {
 
   // Enable difficulty selector when game ends
   if (diffEl) diffEl.disabled = false;
+}
+
+// ---------- Confetti effect ----------
+function spawnConfetti() {
+  const container = document.createElement("div");
+  container.id = "confetti-container";
+  container.style.position = "fixed";
+  container.style.left = "0";
+  container.style.top = "0";
+  container.style.width = "100vw";
+  container.style.height = "100vh";
+  container.style.pointerEvents = "none";
+  container.style.zIndex = "9999";
+  document.body.appendChild(container);
+
+  const total = 120;
+  for (let i = 0; i < total; i++) {
+    const piece = document.createElement("div");
+    piece.style.position = "absolute";
+    piece.style.width = "8px";
+    piece.style.height = "14px";
+    piece.style.background = getRandomColor();
+    piece.style.opacity = "0.9";
+    piece.style.left = Math.random() * 100 + "vw";
+    piece.style.top = Math.random() * 20 + "vh";
+    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+    piece.style.transition = "transform 2s linear, top 2s linear, opacity 2s linear";
+    piece.style.borderRadius = "2px";
+    container.appendChild(piece);
+
+    requestAnimationFrame(() => {
+      piece.style.top = 100 + Math.random() * 15 + "vh";
+      piece.style.transform = `rotate(${Math.random() * 720}deg)`;
+      piece.style.opacity = "0";
+    });
+  }
+
+  setTimeout(() => {
+    container.remove();
+  }, 2200);
 }
 
 // ---------- Optional: Animated Pipe Colors ----------
